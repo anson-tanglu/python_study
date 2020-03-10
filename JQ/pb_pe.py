@@ -33,20 +33,22 @@ class IndexValue(object):
         pb1 =df2.market_cap.sum()/bs.sum()
         return {'code':index_code, 'day':date, 'pe':pe1, 'pb':pb1}
 
-    def get_index_data(self, index_code, trade_day):
+    def get_index_data(self, index_code, trade_days):
         open_date = jqdatasdk.get_security_info(index_code).start_date
-        if(open_date > trade_day[0]):
+        if(open_date > trade_days[0]):
             trade_days = jqdatasdk.get_trade_days(start_date=open_date)
         df = pd.DataFrame()
         for day in trade_days:
             dic = self._calc_pe_pb(index_code, day)
             if dic:
                 df = df.append(dic, ignore_index=True)
-            return df
+        if not df.empty:
+            df.set_index('day', inplace=True)
+        return df
 
     def init_index_data(self, index_code):
         filename = self.get_filename(index_code)
-        days = jqdatasdk.get_trade_days(start_date='2005-01-01')
+        days = jqdatasdk.get_trade_days(start_date='2020-03-01')
         df = self.get_index_data(index_code, days)
         self.write_csv(index_code, df)
         return df
