@@ -5,6 +5,7 @@ from scipy import stats
 from six import BytesIO
 import matplotlib.pyplot as plt
 import os
+import datetime
 
 import warnings
 
@@ -77,7 +78,8 @@ class IndexValue(object):
 
     def read_csv(self,index_code):
         filename = self.get_filename(index_code)
-        df = pd.read_csv(BytesIO(read_file(filename)), index_col='day', parse_dates=['day'])
+        #df = pd.read_csv(BytesIO(read_file(filename)), index_col='day', parse_dates=['day'])
+        df = pd.read_csv(filename, index_col='day', parse_dates=['day'])
         return df
 
     def get_new_trade_days(self, df):
@@ -85,7 +87,7 @@ class IndexValue(object):
         dt = last
         if isinstance(last, str):
             dt = datetime.datetime.strptime(last,'%Y-%m-%d').date()
-        dt = dt + datetime.teimdelta(days=1)
+        dt = dt + datetime.timedelta(days=1)
         days = jqdatasdk.get_trade_days(start_date=dt)
         return days
 
@@ -101,8 +103,10 @@ def plot_index(index_code, df_, anno_text='', show=True):
     low = round(PEs.quantile(0.3),2)
     high = round(PEs.quantile(0.7),2)
     plt.title('%s-%s'%(index_code, jqdatasdk.get_security_info(index_code).display_name))
-    l1, = plt.plot(data.index, data.pe, lw=LINE_W)
-    plt.grid(ls=':', c=GRID_C)
+    #l1, = plt.plot(data.index, data.pe, lw=LINE_W)
+    l1, = plt.plot(data.index, data.pe)
+    #plt.grid(ls=':', c=GRID_C)
+    plt.grid(ls=':', c='r')
     #latest day annotation
     mid_idx = int(data.shape[0]/2)
     txt = 'Data: %s, PE: %.2f, %s' %(str(data.index[-1])[:10], PEs.iloc[-1], str(anno_text))
@@ -110,7 +114,7 @@ def plot_index(index_code, df_, anno_text='', show=True):
     plt.axhline(high, ls='--', c='r', label=high)
     plt.axhline(low, ls='--', c='g', label=low)
     plt.legend()
-    plt.shwo()
+    plt.show()
 
 # main
 
