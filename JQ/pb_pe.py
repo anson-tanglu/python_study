@@ -32,7 +32,9 @@ class IndexValue(object):
         pe1 = df2.market_cap.sum()/earns.sum()
         bs = df2.market_cap/df2.pb_ratio
         pb1 =df2.market_cap.sum()/bs.sum()
-        return {'code':index_code, 'day':date, 'pe':pe1, 'pb':pb1}
+
+        code_idx = jqdatasdk.get_price(index_code, count=1, end_date=date,fields=['open','close'])
+        return {'code':index_code, 'open':code_idx.open[0], 'close':code_idx.close[0], 'day':date, 'pe':pe1, 'pb':pb1}
 
     def get_index_data(self, index_code, trade_days):
         open_date = jqdatasdk.get_security_info(index_code).start_date
@@ -49,7 +51,7 @@ class IndexValue(object):
 
     def init_index_data(self, index_code):
         filename = self.get_filename(index_code)
-        days = jqdatasdk.get_trade_days(start_date='2020-03-01')
+        days = jqdatasdk.get_trade_days(start_date='2005-01-01')
         df = self.get_index_data(index_code, days)
         self.write_csv(index_code, df)
         return df
@@ -93,6 +95,50 @@ class IndexValue(object):
 
 
 ############################
+def get_trade_day_bar(unit='W', n=1, start_date=None, end_date=None, count=None):
+    """
+    unit: freq, "W":means week "M":means month
+    n: n=1,first trade day; n=-1,last trade day
+    start_date: begin date
+    end_date: finish date
+    count: return data count
+    """
+    df = pd.DataFrame(pd.to_datetime(jqdatasdk.get_all_trade_days()),columns=['date'])
+    week_stamp = 24*60*60*7
+    day_stamp = 24*60*60
+    df['timestamp'] = df.data.apply(lambda x: x.timestamp() - day_stamp*3)
+    df['mkweek'] = df.timestamp // week_stamp
+    df['month'] = df.date.apply(lambda x : x.month)
+    df['year'] = df.date.apply(lambda x : x.year)
+
+    if unit=="W":
+        group_list = ['mkweek']
+    elif unit =="M":
+        group_list = ["year","month"]
+    else:
+        raise ValueError ('only support para "M" or "W" ')
+    if not isinstance(n,int):
+        raise ValueError ('n para should be int')
+    elif n>0:
+        res = df.groupby(group_list,as_index=False).head(n),groupby(group_list,as_index=False).last()
+    elif n<0:
+        res = df.groupby(group_list,as_index=False),tail(-n).groupby(group_list,as_index=False).first()
+    else:
+        raise ValueError ('n para error: n={}.'.format(n))
+
+    if start_date and end_date and count:
+        raise ValueError ('start_date, end_date, count shoule select two')
+    elif start_date and count:
+        return res[res.date>=start_date].head(count)
+    elif end_date and count:
+        return res[res.date<=end_date].tail(count)
+    elif start_date and end_date:
+        return res[(res.date <=end_date)&(res.date>=start_date)]
+    elif not start_date and not end_date and not count:
+        return res
+    else:
+        raise ValueError ('start_date, end_date, count should select two')
+############################
 plt.figure(figsize=(10, 5))
 
 INDEX_CODES = ['000300.XSHG']
@@ -105,8 +151,6 @@ def plot_index(index_code, df_, anno_text='', show=True):
     plt.title('%s-%s'%(index_code, jqdatasdk.get_security_info(index_code).display_name))
     #l1, = plt.plot(data.index, data.pe, lw=LINE_W)
     l1, = plt.plot(data.index, data.pe)
-    #plt.grid(ls=':', c=GRID_C)
-    plt.grid(ls=':', c='r')
     #latest day annotation
     mid_idx = int(data.shape[0]/2)
     txt = 'Data: %s, PE: %.2f, %s' %(str(data.index[-1])[:10], PEs.iloc[-1], str(anno_text))
